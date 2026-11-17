@@ -32,7 +32,7 @@ export default function ImageUploadView() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        apiRequest<Asset[]>("/assets")
+        apiRequest<Asset[]>("/assets/")
             .then((data) => {
                 if (Array.isArray(data) && data.length > 0) {
                     setAssets(data);
@@ -69,18 +69,19 @@ export default function ImageUploadView() {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            formData.append("asset_id", selectedAssetId);
             formData.append("inspection_date", inspectionDate);
             if (notes) formData.append("notes", notes);
 
-            const response = await apiRequest<UploadResult>("/inspections/upload", {
-                method: "POST",
-                body: formData,
-            });
+            const response = await apiRequest<UploadResult>(
+                `/assets/${selectedAssetId}/upload-image`,
+                {
+                    method: "POST",
+                    body: formData,
+                }
+            );
 
             setResult(response);
         } catch (err: any) {
-            // Fallback preview if backend preprocessing endpoint isn't live yet
             setError(
                 `${err.message || "Backend unreachable"} — showing local preprocessing preview.`
             );
@@ -107,7 +108,6 @@ export default function ImageUploadView() {
                 </p>
             </div>
 
-            {/* Asset & Inspection Session Linking */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">Target Infrastructure Asset</label>
@@ -153,7 +153,6 @@ export default function ImageUploadView() {
                 </div>
             )}
 
-            {/* Drag & Drop or Preview */}
             {!previewUrl ? (
                 <label
                     onDragOver={(e) => {
@@ -184,7 +183,6 @@ export default function ImageUploadView() {
             ) : (
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Original Image */}
                         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -197,7 +195,6 @@ export default function ImageUploadView() {
                             </div>
                         </div>
 
-                        {/* AI Output */}
                         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
                             <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                                 Preprocessing & AI Detection Output

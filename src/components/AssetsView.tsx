@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Search, Plus, Edit2, MapPin, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { apiRequest } from "../api/client";
 
@@ -29,7 +29,6 @@ export default function AssetsView() {
     const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
     const [statusNotice, setStatusNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-    // Form state
     const [name, setName] = useState("");
     const [type, setType] = useState<Asset["type"]>("Bridge");
     const [location, setLocation] = useState("");
@@ -39,13 +38,11 @@ export default function AssetsView() {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        apiRequest<Asset[]>("/assets")
+        apiRequest<Asset[]>("/assets/")
             .then((data) => {
                 if (Array.isArray(data) && data.length > 0) setAssets(data);
             })
-            .catch(() => {
-                // Keep initial state when backend server is offline
-            });
+            .catch(() => { });
     }, []);
 
     const openAddModal = () => {
@@ -95,7 +92,7 @@ export default function AssetsView() {
                 setAssets((prev) => prev.map((a) => (a.id === editingAsset.id ? updated : a)));
                 setStatusNotice({ type: "success", text: `Updated "${name}" successfully.` });
             } else {
-                const created = await apiRequest<Asset>("/assets", {
+                const created = await apiRequest<Asset>("/assets/", {
                     method: "POST",
                     body: JSON.stringify(payload),
                 }).catch(() => ({
@@ -125,7 +122,6 @@ export default function AssetsView() {
 
     return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            {/* Header & Add Button */}
             <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="font-bold text-slate-900 text-base">Infrastructure Assets Registry</h2>
@@ -141,7 +137,6 @@ export default function AssetsView() {
                 </button>
             </div>
 
-            {/* Status Alert */}
             {statusNotice && (
                 <div
                     className={`mx-5 mt-4 p-3 rounded-md text-xs flex items-center gap-2 ${statusNotice.type === "success"
@@ -158,7 +153,6 @@ export default function AssetsView() {
                 </div>
             )}
 
-            {/* Search & Category Filter Bar */}
             <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-slate-50/50">
                 <div className="relative flex-1 max-w-sm">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -187,7 +181,6 @@ export default function AssetsView() {
                 </div>
             </div>
 
-            {/* Table */}
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-sm">
                     <thead>
@@ -254,7 +247,6 @@ export default function AssetsView() {
                 </table>
             </div>
 
-            {/* Add / Edit Asset Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl border border-slate-200 shadow-xl w-full max-w-md overflow-hidden">

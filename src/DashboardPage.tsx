@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
     Scan,
     LayoutDashboard,
     Building2,
     ClipboardList,
     Upload,
+    MapPin,
+    GitCompare,
+    Wrench,
+    BarChart3,
     LogOut,
     ChevronLeft,
     PlusCircle,
@@ -15,6 +19,11 @@ import {
 import { apiRequest } from "./api/client";
 import AssetsView from "./components/AssetsView";
 import ImageUploadView from "./components/ImageUploadView";
+import InspectionReportModal from "./components/InspectionReportModal";
+import DamageMapView from "./components/DamageMapView";
+import HistoricalComparisonView from "./components/HistoricalComparisonView";
+import MaintenanceQueueView from "./components/MaintenanceQueueView";
+import AnalyticsView from "./components/AnalyticsView";
 
 interface DashboardPageProps {
     userRole: string;
@@ -33,21 +42,20 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loadingStats, setLoadingStats] = useState(true);
 
-    const userName = localStorage.getItem("infrascan_user_name") || "Pranali Tantak";
-
-    // Mock data for inspections list (will connect to Milestone 2 Inspection Details modal next)
-    const inspectionsList = [
+    const [inspectionsList, setInspectionsList] = useState([
         { id: "INS-001", asset: "Eastern Viaduct Pier 14", type: "Bridge", inspector: "Pranali Tantak", severity: "Critical", status: "Needs Review", date: "2026-10-24" },
         { id: "INS-002", asset: "North Dam Spillway Gate B", type: "Dam", inspector: "Pujita", severity: "Moderate", status: "In Progress", date: "2026-10-23" },
         { id: "INS-003", asset: "City Center Metro Overpass", type: "Bridge", inspector: "Rohit", severity: "Safe", status: "Approved", date: "2026-10-22" },
-    ];
+    ]);
+    const [selectedInspection, setSelectedInspection] = useState<(typeof inspectionsList)[0] | null>(null);
+
+    const userName = localStorage.getItem("infrascan_user_name") || "Pranali Tantak";
 
     useEffect(() => {
         setLoadingStats(true);
-        apiRequest<DashboardStats>("/dashboard/stats")
+        apiRequest<DashboardStats>("/dashboard/summary")
             .then((data) => setStats(data))
             .catch(() => {
-                // Fallback when backend server is offline
                 setStats({
                     total_assets: 28,
                     critical_defects: 5,
@@ -58,9 +66,19 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
             .finally(() => setLoadingStats(false));
     }, []);
 
+    const navItems = [
+        { name: "Dashboard", icon: LayoutDashboard },
+        { name: "Assets", icon: Building2 },
+        { name: "Inspections", icon: ClipboardList },
+        { name: "Image upload", icon: Upload },
+        { name: "Damage Map", icon: MapPin },
+        { name: "Before & After", icon: GitCompare },
+        { name: "Maintenance", icon: Wrench },
+        { name: "Analytics", icon: BarChart3 },
+    ];
+
     return (
         <div className="min-h-screen w-full bg-[#f8fafc] text-slate-900 font-sans flex">
-            {/* Sidebar Navigation */}
             <aside className="w-64 bg-[#0a1628] text-slate-300 hidden md:flex flex-col justify-between p-5 select-none border-r border-slate-800">
                 <div>
                     <div className="flex items-center justify-between mb-8 text-white px-2">
@@ -71,13 +89,8 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
                         <ChevronLeft className="w-4 h-4 text-slate-400" />
                     </div>
 
-                    <nav className="space-y-1.5">
-                        {[
-                            { name: "Dashboard", icon: LayoutDashboard },
-                            { name: "Assets", icon: Building2 },
-                            { name: "Inspections", icon: ClipboardList },
-                            { name: "Image upload", icon: Upload },
-                        ].map((item) => {
+                    <nav className="space-y-1">
+                        {navItems.map((item) => {
                             const Icon = item.icon;
                             return (
                                 <button
@@ -95,7 +108,6 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
                     </nav>
                 </div>
 
-                {/* User Profile Footer */}
                 <div className="pt-4 border-t border-slate-800/80 flex flex-col gap-3 px-2">
                     <div>
                         <span className="block text-xs font-semibold text-white">{userName}</span>
@@ -110,7 +122,6 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
                 </div>
             </aside>
 
-            {/* Main Content Area */}
             <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
                 <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-10">
                     <h1 className="text-lg font-bold text-slate-900">{activeTab}</h1>
@@ -123,7 +134,6 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
                 </header>
 
                 <div className="p-8 max-w-7xl w-full mx-auto space-y-6">
-                    {/* TAB 1: DASHBOARD */}
                     {activeTab === "Dashboard" && (
                         <div className="space-y-6">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -176,28 +186,18 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                                <h2 className="text-base font-bold text-slate-900 mb-4">Quick Overview</h2>
-                                <p className="text-sm text-slate-600">
-                                    Welcome back, <span className="font-semibold text-slate-800">{userName}</span>. Use the left sidebar to manage{" "}
-                                    <span className="font-semibold">Assets</span>, inspect AI detection results under{" "}
-                                    <span className="font-semibold">Inspections</span>, or upload new site images to the{" "}
-                                    <span className="font-semibold">Image upload</span> pipeline.
-                                </p>
-                            </div>
+                            <AnalyticsView />
                         </div>
                     )}
 
-                    {/* TAB 2: ASSETS VIEW */}
                     {activeTab === "Assets" && <AssetsView />}
 
-                    {/* TAB 3: INSPECTIONS MANAGEMENT */}
                     {activeTab === "Inspections" && (
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                             <div className="p-5 border-b border-slate-200 flex items-center justify-between">
                                 <div>
                                     <h2 className="font-bold text-slate-900 text-base">Inspection Logs & Reviews</h2>
-                                    <p className="text-xs text-slate-500 mt-0.5">Track field inspections and engineering audit statuses.</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">Track field inspections, YOLO/U-Net overlays, and Grad-CAM reports.</p>
                                 </div>
                             </div>
                             <div className="overflow-x-auto">
@@ -232,7 +232,10 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
                                                 </td>
                                                 <td className="py-4 px-6 text-slate-600 text-xs font-medium">{insp.status}</td>
                                                 <td className="py-4 px-6 text-right">
-                                                    <button className="text-cyan-600 hover:text-cyan-800 text-xs font-medium">
+                                                    <button
+                                                        onClick={() => setSelectedInspection(insp)}
+                                                        className="text-cyan-600 hover:text-cyan-800 text-xs font-medium"
+                                                    >
                                                         Review Report
                                                     </button>
                                                 </td>
@@ -244,10 +247,26 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
                         </div>
                     )}
 
-                    {/* TAB 4: IMAGE UPLOAD & PREPROCESSING WORKSPACE */}
                     {activeTab === "Image upload" && <ImageUploadView />}
+                    {activeTab === "Damage Map" && <DamageMapView />}
+                    {activeTab === "Before & After" && <HistoricalComparisonView />}
+                    {activeTab === "Maintenance" && <MaintenanceQueueView />}
+                    {activeTab === "Analytics" && <AnalyticsView />}
                 </div>
             </main>
+
+            {selectedInspection && (
+                <InspectionReportModal
+                    inspectionId={selectedInspection.id}
+                    fallbackSummary={selectedInspection}
+                    onClose={() => setSelectedInspection(null)}
+                    onStatusChange={(id, newStatus) =>
+                        setInspectionsList((prev) =>
+                            prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
+                        )
+                    }
+                />
+            )}
         </div>
     );
 }
