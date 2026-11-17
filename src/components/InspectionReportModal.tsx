@@ -9,6 +9,9 @@ import {
     AlertTriangle,
     CheckCircle2,
     ShieldAlert,
+    FileSpreadsheet,
+    FileText,
+    Printer,
 } from "lucide-react";
 import { apiRequest } from "../api/client";
 
@@ -165,10 +168,114 @@ export default function InspectionReportModal({
         }
     };
 
+    const handleExportSingleCsv = () => {
+        if (!detail) return;
+        const rows = [
+            ["Field", "Value"],
+            ["Inspection ID", detail.id],
+            ["Asset Name", detail.asset],
+            ["Category", detail.type],
+            ["Inspector", detail.inspector],
+            ["Inspection Date", detail.date],
+            ["Severity", detail.severity],
+            ["Audit Status", detail.status],
+            ["AI Crack Classification", detail.crack_type],
+            ["Max Width (mm)", String(detail.max_width_mm)],
+            ["Total Length (cm)", String(detail.length_cm)],
+            ["Crack Area (cm2)", String(detail.area_cm2)],
+            ["Engineer Notes", detail.engineer_notes || ""],
+        ];
+        const csv = "data:text/csv;charset=utf-8," + rows.map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+        const link = document.createElement("a");
+        link.href = encodeURI(csv);
+        link.download = `${detail.id}_automated_report.csv`;
+        link.click();
+    };
+
+    const handleExportSingleExcel = () => {
+        if (!detail) return;
+        const htmlTable = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+      <head><meta charset="UTF-8"></head>
+      <body>
+        <h2>InfraScan Automated Structural Inspection Report</h2>
+        <table border="1">
+          <tr><th>Parameter</th><th>Measurement / Value</th></tr>
+          <tr><td>Inspection ID</td><td>${detail.id}</td></tr>
+          <tr><td>Asset Name</td><td>${detail.asset}</td></tr>
+          <tr><td>Infrastructure Type</td><td>${detail.type}</td></tr>
+          <tr><td>Inspector</td><td>${detail.inspector}</td></tr>
+          <tr><td>Date</td><td>${detail.date}</td></tr>
+          <tr><td>Severity Rating</td><td>${detail.severity}</td></tr>
+          <tr><td>Audit Status</td><td>${detail.status}</td></tr>
+          <tr><td>AI Classification</td><td>${detail.crack_type}</td></tr>
+          <tr><td>Max Crack Width (mm)</td><td>${detail.max_width_mm}</td></tr>
+          <tr><td>Total Crack Length (cm)</td><td>${detail.length_cm}</td></tr>
+          <tr><td>Crack Surface Area (cm²)</td><td>${detail.area_cm2}</td></tr>
+          <tr><td>Engineering Assessment</td><td>${detail.engineer_notes || ""}</td></tr>
+        </table>
+      </body></html>`;
+        const blob = new Blob([htmlTable], { type: "application/vnd.ms-excel" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${detail.id}_automated_report.xls`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handlePrintFormalReport = () => {
+        if (!detail) return;
+        const win = window.open("", "_blank", "width=850,height=900");
+        if (!win) return;
+        win.document.write(`
+      <html>
+        <head>
+          <title>InfraScan Report - ${detail.id}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 36px; color: #0f172a; }
+            .header { border-bottom: 2px solid #0e7490; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; }
+            .badge { padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 12px; background: #fee2e2; color: #b91c1c; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 13px; }
+            th { background: #f1f5f9; width: 35%; }
+            .footer { margin-top: 32px; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1 style="margin:0;font-size:20px;">InfraScan — Automated Structural Inspection Report</h1>
+              <p style="margin:4px 0 0;font-size:12px;color:#475569;">AI-Powered Crack & Damage Assessment System</p>
+            </div>
+            <div><span class="badge">${detail.severity} Severity</span></div>
+          </div>
+          <table>
+            <tr><th>Inspection ID</th><td>${detail.id}</td></tr>
+            <tr><th>Infrastructure Asset</th><td>${detail.asset} (${detail.type})</td></tr>
+            <tr><th>Assigned Inspector</th><td>${detail.inspector}</td></tr>
+            <tr><th>Inspection Date</th><td>${detail.date}</td></tr>
+            <tr><th>Audit Verification Status</th><td>${detail.status}</td></tr>
+            <tr><th>AI Crack Classification</th><td>${detail.crack_type}</td></tr>
+            <tr><th>Maximum Crack Width</th><td>${detail.max_width_mm} mm</td></tr>
+            <tr><th>Total Crack Length</th><td>${detail.length_cm} cm</td></tr>
+            <tr><th>Affected Crack Area</th><td>${detail.area_cm2} cm²</td></tr>
+            <tr><th>Engineering Assessment Note</th><td>${detail.engineer_notes || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Generated automatically by InfraScan Platform • AI results support — not replace — engineering judgement.
+          </div>
+          <script>window.onload = () => { window.print(); };</script>
+        </body>
+      </html>
+    `);
+        win.document.close();
+    };
+
     return (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-5xl overflow-hidden my-auto">
-                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50">
                     <div>
                         <div className="flex items-center gap-2.5">
                             <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
@@ -181,12 +288,38 @@ export default function InspectionReportModal({
                         </p>
                     </div>
 
-                    <button
-                        onClick={onClose}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleExportSingleCsv}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-100 text-xs font-medium text-slate-700 transition"
+                            title="Export CSV"
+                        >
+                            <FileText className="w-3.5 h-3.5 text-cyan-700" /> CSV
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleExportSingleExcel}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-100 text-xs font-medium text-slate-700 transition"
+                            title="Export Excel"
+                        >
+                            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Excel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handlePrintFormalReport}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 text-xs font-medium text-white transition"
+                            title="Generate Printable PDF Report"
+                        >
+                            <Printer className="w-3.5 h-3.5" /> PDF Report
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition ml-1"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
 
                 {loading || !detail ? (
@@ -345,10 +478,10 @@ export default function InspectionReportModal({
                                 <div className="flex items-center justify-between">
                                     <span
                                         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${detail.severity === "Critical"
-                                            ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                            : detail.severity === "Moderate"
-                                                ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                                : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                                : detail.severity === "Moderate"
+                                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                             }`}
                                     >
                                         <ShieldAlert className="w-3.5 h-3.5" /> {detail.severity} Severity
