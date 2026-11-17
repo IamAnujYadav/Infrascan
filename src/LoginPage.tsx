@@ -1,8 +1,21 @@
 import React, { useState } from "react";
-import { Eye, EyeOff, Scan, ChevronDown } from "lucide-react";
+import { Eye, EyeOff, Scan, ChevronDown, AlertCircle, CheckCircle2 } from "lucide-react";
+import { apiRequest } from "./api/client";
 
 interface LoginPageProps {
     onLogin: (role: string) => void;
+}
+
+interface AuthResponse {
+    access_token: string;
+    token_type?: string;
+    role?: string;
+    user?: {
+        full_name?: string;
+        name?: string;
+        email?: string;
+        role?: string;
+    };
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
@@ -14,9 +27,61 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     const [showPassword, setShowPassword] = useState(false);
     const [role, setRole] = useState("Civil Engineer");
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onLogin(role);
+        setError(null);
+        setSuccessMessage(null);
+
+        if (isSignUp && password !== confirmPassword) {
+            setError("Passwords do not match.");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            if (isSignUp) {
+                await apiRequest("/register", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        full_name: fullName,
+                        name: fullName,
+                        email,
+                        password,
+                        role,
+                    }),
+                });
+
+                setSuccessMessage("Account created successfully! Please sign in.");
+                setIsSignUp(false);
+                setPassword("");
+                setConfirmPassword("");
+            } else {
+                const data = await apiRequest<AuthResponse>("/login", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        email,
+                        password,
+                    }),
+                });
+
+                const resolvedRole = data.role || data.user?.role || role;
+                localStorage.setItem("infrascan_token", data.access_token);
+                localStorage.setItem("infrascan_role", resolvedRole);
+                if (data.user?.full_name || data.user?.name) {
+                    localStorage.setItem("infrascan_user_name", data.user.full_name || data.user.name || "");
+                }
+
+                onLogin(resolvedRole);
+            }
+        } catch (err: any) {
+            setError(err.message || "Authentication failed. Please check your credentials and server connection.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -58,10 +123,21 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                             : "Use your InfraScan account."}
                     </p>
 
-                    {/* Demo Mode Notice Box */}
-                    <div className="bg-[#fff9eb] border border-[#fde68a] rounded-md p-3.5 mb-6 text-[13px] leading-relaxed text-[#78350f]">
-                        <span className="font-semibold text-[#78350f]">Demo mode.</span> No server is connected, so any email and password signs you in with sample data. This is not real authentication.
-                    </div>
+                    {/* Error Alert */}
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 rounded-md p-3.5 mb-5 flex items-start gap-2.5 text-[13px] text-red-800">
+                            <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                            <span>{error}</span>
+                        </div>
+                    )}
+
+                    {/* Success Alert */}
+                    {successMessage && (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3.5 mb-5 flex items-start gap-2.5 text-[13px] text-emerald-800">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>{successMessage}</span>
+                        </div>
+                    )}
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -76,7 +152,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                                     required
                                     value={fullName}
                                     onChange={(e) => setFullName(e.target.value)}
-                                    placeholder=" "
+                                    placeholder="Pranali Tantak"
                                     className="w-full bg-[#f1f5f9] border border-slate-200 rounded-md px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-400 transition"
                                 />
                             </div>
@@ -92,7 +168,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder=" "
+                                placeholder="engineer@infrascan.io"
                                 className="w-full bg-[#f1f5f9] border border-slate-200 rounded-md px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-400 transition"
                             />
                         </div>
@@ -142,33 +218,42 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                             </div>
                         )}
 
-                        {/* Role Dropdown */}
-                        <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                                {isSignUp ? "Select Role" : "Demo role"}
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={role}
-                                    onChange={(e) => setRole(e.target.value)}
-                                    className="w-full appearance-none bg-white border border-slate-200 rounded-md px-3.5 py-2 text-sm text-slate-800 pr-10 focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer transition shadow-sm"
-                                >
-                                    <option value="Civil Engineer">Civil Engineer</option>
-                                    <option value="Infrastructure Inspector">Infrastructure Inspector</option>
-                                    <option value="Maintenance Engineer">Maintenance Engineer</option>
-                                    <option value="Infrastructure Manager">Infrastructure Manager</option>
-                                    <option value="Administrator">Administrator</option>
-                                </select>
-                                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        {/* Role Dropdown (Sign Up Only — on Sign In, role comes from the backend JWT/user profile) */}
+                        {isSignUp && (
+                            <div>
+                                <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                                    Select Role
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        value={role}
+                                        onChange={(e) => setRole(e.target.value)}
+                                        className="w-full appearance-none bg-white border border-slate-200 rounded-md px-3.5 py-2 text-sm text-slate-800 pr-10 focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer transition shadow-sm"
+                                    >
+                                        <option value="Civil Engineer">Civil Engineer</option>
+                                        <option value="Infrastructure Inspector">Infrastructure Inspector</option>
+                                        <option value="Maintenance Engineer">Maintenance Engineer</option>
+                                        <option value="Infrastructure Manager">Infrastructure Manager</option>
+                                        <option value="Administrator">Administrator</option>
+                                    </select>
+                                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Action Button */}
                         <button
                             type="submit"
-                            className="w-full mt-2 bg-[#0e7490] hover:bg-[#155e75] active:bg-[#164e63] text-white font-medium py-2.5 rounded-md text-sm transition shadow-sm"
+                            disabled={isLoading}
+                            className="w-full mt-2 bg-[#0e7490] hover:bg-[#155e75] active:bg-[#164e63] disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-md text-sm transition shadow-sm"
                         >
-                            {isSignUp ? "Create account" : "Sign in"}
+                            {isLoading
+                                ? isSignUp
+                                    ? "Creating account..."
+                                    : "Signing in..."
+                                : isSignUp
+                                    ? "Create account"
+                                    : "Sign in"}
                         </button>
                     </form>
 
@@ -178,7 +263,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
                             <button
                                 type="button"
-                                onClick={() => setIsSignUp(!isSignUp)}
+                                onClick={() => {
+                                    setIsSignUp(!isSignUp);
+                                    setError(null);
+                                    setSuccessMessage(null);
+                                }}
                                 className="text-[#0e7490] font-medium hover:underline inline-block"
                             >
                                 {isSignUp ? "Sign in" : "Create account"}
