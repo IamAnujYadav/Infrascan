@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Printer, BarChart3 } from "lucide-react";
+import { Download, Printer, BarChart3, FileSpreadsheet } from "lucide-react";
 
 const DEFECT_TRENDS = [
     { month: "May", count: 8 },
@@ -44,11 +44,36 @@ export default function AnalyticsView() {
         document.body.removeChild(link);
     };
 
+    const handleExportExcel = () => {
+        const tableRows = visibleHealth
+            .map(
+                (r) =>
+                    `<tr><td>${r.category}</td><td>${r.safe}</td><td>${r.moderate}</td><td>${r.critical}</td></tr>`
+            )
+            .join("");
+        const html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+      <head><meta charset="UTF-8"></head>
+      <body>
+        <h3>InfraScan Structural Health Summary</h3>
+        <table border="1">
+          <tr><th>Asset Category</th><th>Safe Assets</th><th>Moderate Defects</th><th>Critical Defects</th></tr>
+          ${tableRows}
+        </table>
+      </body></html>`;
+        const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `infrascan_analytics_${new Date().toISOString().split("T")[0]}.xls`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     const totalCracks = CRACK_CLASSES.reduce((sum, item) => sum + item.count, 0);
 
     return (
         <div className="space-y-6">
-            {/* Top Filter & Export Toolbar */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="font-bold text-slate-900 text-base flex items-center gap-2">
@@ -74,23 +99,28 @@ export default function AnalyticsView() {
 
                     <button
                         onClick={handleExportCsv}
-                        className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-md text-xs font-medium transition"
+                        className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-medium transition"
                     >
-                        <Download className="w-3.5 h-3.5" /> Export CSV
+                        <Download className="w-3.5 h-3.5" /> CSV
+                    </button>
+
+                    <button
+                        onClick={handleExportExcel}
+                        className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-md text-xs font-medium transition"
+                    >
+                        <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
                     </button>
 
                     <button
                         onClick={() => window.print()}
-                        className="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 px-3.5 py-1.5 rounded-md text-xs font-medium transition"
+                        className="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-md text-xs font-medium transition"
                     >
                         <Printer className="w-3.5 h-3.5" /> Print / PDF
                     </button>
                 </div>
             </div>
 
-            {/* Charts Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Chart 1: Monthly Defect Trends */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                     <h3 className="text-sm font-bold text-slate-900 mb-1">Monthly Detected Defects Trend</h3>
                     <p className="text-xs text-slate-500 mb-6">Total structural defects logged across field inspections</p>
@@ -118,7 +148,6 @@ export default function AnalyticsView() {
                     </div>
                 </div>
 
-                {/* Chart 2: Crack Class Distribution */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                     <h3 className="text-sm font-bold text-slate-900 mb-1">Crack Class Distribution</h3>
                     <p className="text-xs text-slate-500 mb-6">Breakdown by YOLO & U-Net fracture classification</p>
@@ -144,7 +173,6 @@ export default function AnalyticsView() {
                 </div>
             </div>
 
-            {/* Chart 3: Asset Health Breakdown */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                 <h3 className="text-sm font-bold text-slate-900 mb-1">Asset Health Status by Category</h3>
                 <p className="text-xs text-slate-500 mb-5">Distribution of Safe, Moderate, and Critical assets</p>

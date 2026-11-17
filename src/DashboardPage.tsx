@@ -9,6 +9,7 @@ import {
     GitCompare,
     Wrench,
     BarChart3,
+    Bell,
     LogOut,
     ChevronLeft,
     PlusCircle,
@@ -37,6 +38,16 @@ interface DashboardStats {
     approved_audits: number;
 }
 
+interface SystemAlert {
+    id: string;
+    title: string;
+    message: string;
+    severity: "Critical" | "Warning" | "Info";
+    timestamp: string;
+    read: boolean;
+    inspectionId?: string;
+}
+
 export default function DashboardPage({ userRole, onLogout }: DashboardPageProps) {
     const [activeTab, setActiveTab] = useState("Dashboard");
     const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -48,6 +59,37 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
         { id: "INS-003", asset: "City Center Metro Overpass", type: "Bridge", inspector: "Rohit", severity: "Safe", status: "Approved", date: "2026-10-22" },
     ]);
     const [selectedInspection, setSelectedInspection] = useState<(typeof inspectionsList)[0] | null>(null);
+
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [alerts, setAlerts] = useState<SystemAlert[]>([
+        {
+            id: "ALT-01",
+            title: "Critical Shear Crack Threshold Exceeded",
+            message: "Eastern Viaduct Pier 14 (INS-001) recorded 2.4 mm crack width (> 2.0 mm safety limit).",
+            severity: "Critical",
+            timestamp: "12 mins ago",
+            read: false,
+            inspectionId: "INS-001",
+        },
+        {
+            id: "ALT-02",
+            title: "Engineering Audit Pending Sign-Off",
+            message: "North Dam Spillway Gate B (INS-002) AI segmentation mask is ready for verification.",
+            severity: "Warning",
+            timestamp: "2 hours ago",
+            read: false,
+            inspectionId: "INS-002",
+        },
+        {
+            id: "ALT-03",
+            title: "Automated Report Archived",
+            message: "City Center Metro Overpass (INS-003) approved by Rohit.",
+            severity: "Info",
+            timestamp: "Yesterday",
+            read: true,
+            inspectionId: "INS-003",
+        },
+    ]);
 
     const userName = localStorage.getItem("infrascan_user_name") || "Pranali Tantak";
 
@@ -64,7 +106,29 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
                 });
             })
             .finally(() => setLoadingStats(false));
+
+        apiRequest<typeof inspectionsList>("/inspections/")
+            .then((data) => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setInspectionsList(data);
+                }
+            })
+            .catch(() => { });
     }, []);
+
+    const unreadCount = alerts.filter((a) => !a.read).length;
+
+    const handleOpenAlert = (alert: SystemAlert) => {
+        setAlerts((prev) => prev.map((a) => (a.id === alert.id ? { ...a, read: true } : a)));
+        setShowNotifications(false);
+        if (alert.inspectionId) {
+            const target = inspectionsList.find((i) => i.id === alert.inspectionId);
+            if (target) {
+                setActiveTab("Inspections");
+                setSelectedInspection(target);
+            }
+        }
+    };
 
     const navItems = [
         { name: "Dashboard", icon: LayoutDashboard },
@@ -123,14 +187,75 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
             </aside>
 
             <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-                <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-10">
+                <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-20">
                     <h1 className="text-lg font-bold text-slate-900">{activeTab}</h1>
-                    <button
-                        onClick={() => setActiveTab("Image upload")}
-                        className="bg-[#0e7490] hover:bg-[#155e75] text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition shadow-sm"
-                    >
-                        <PlusCircle className="w-4 h-4" /> New Inspection
-                    </button>
+
+                    <div className="flex items-center gap-3 relative">
+                        {/* Notifications & Alerts Bell */}
+                        <button
+                            type="button"
+                            onClick={() => setShowNotifications(!showNotifications)}
+                            className="relative p-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition"
+                            title="Structural Alerts & Notifications"
+                        >
+                            <Bell className="w-4 h-4" />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
+                                    {unreadCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {showNotifications && (
+                            <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden z-30">
+                                <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                                    <span className="text-xs font-bold text-slate-900">
+                                        Structural Alerts & Notifications ({unreadCount} unread)
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAlerts((prev) => prev.map((a) => ({ ...a, read: true })))}
+                                        className="text-[11px] font-medium text-cyan-700 hover:underline"
+                                    >
+                                        Mark all read
+                                    </button>
+                                </div>
+
+                                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                                    {alerts.map((alert) => (
+                                        <button
+                                            key={alert.id}
+                                            type="button"
+                                            onClick={() => handleOpenAlert(alert)}
+                                            className={`w-full text-left p-3.5 hover:bg-slate-50 transition flex items-start gap-2.5 ${alert.read ? "opacity-70" : "bg-cyan-50/30"
+                                                }`}
+                                        >
+                                            <span
+                                                className={`mt-1 w-2 h-2 rounded-full shrink-0 ${alert.severity === "Critical"
+                                                    ? "bg-rose-600"
+                                                    : alert.severity === "Warning"
+                                                        ? "bg-amber-500"
+                                                        : "bg-cyan-600"
+                                                    }`}
+                                            />
+                                            <div className="space-y-0.5">
+                                                <p className="text-xs font-bold text-slate-900">{alert.title}</p>
+                                                <p className="text-[11px] text-slate-600 leading-snug">{alert.message}</p>
+                                                <span className="block text-[10px] text-slate-400 pt-0.5">{alert.timestamp}</span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <button
+                            onClick={() => setActiveTab("Image upload")}
+                            className="bg-[#0e7490] hover:bg-[#155e75] text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition shadow-sm"
+                        >
+                            <PlusCircle className="w-4 h-4" /> New Inspection
+                        </button>
+                    </div>
                 </header>
 
                 <div className="p-8 max-w-7xl w-full mx-auto space-y-6">
@@ -196,8 +321,10 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                             <div className="p-5 border-b border-slate-200 flex items-center justify-between">
                                 <div>
-                                    <h2 className="font-bold text-slate-900 text-base">Inspection Logs & Reviews</h2>
-                                    <p className="text-xs text-slate-500 mt-0.5">Track field inspections, YOLO/U-Net overlays, and Grad-CAM reports.</p>
+                                    <h2 className="font-bold text-slate-900 text-base">Inspection Logs & Automated Reports</h2>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                        Review YOLO/U-Net/Grad-CAM overlays and export PDF, CSV, or Excel inspection reports.
+                                    </p>
                                 </div>
                             </div>
                             <div className="overflow-x-auto">
@@ -236,7 +363,7 @@ export default function DashboardPage({ userRole, onLogout }: DashboardPageProps
                                                         onClick={() => setSelectedInspection(insp)}
                                                         className="text-cyan-600 hover:text-cyan-800 text-xs font-medium"
                                                     >
-                                                        Review Report
+                                                        Review & Export Report
                                                     </button>
                                                 </td>
                                             </tr>
