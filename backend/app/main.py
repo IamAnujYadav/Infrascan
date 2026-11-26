@@ -1,7 +1,7 @@
-"""InfraScan API. Run from the project root:
-    uvicorn app.main:app --host 0.0.0.0 --port 8000
-Then open http://localhost:8000/docs"""
+import os
+import urllib.request
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +20,28 @@ from app.services.analysis_service import STORAGE
 from app.services.auth_service import seed_admin
 from app.services.errors import ServiceError
 
+DEFAULT_RESNET_URL = "https://huggingface.co/Iamanujyadav/infrascan-weights/resolve/main/resnet50_crack_B_finetuned.keras"
+DEFAULT_UNET_URL = "https://huggingface.co/Iamanujyadav/infrascan-weights/resolve/main/unet_resnet50_crack500.keras"
+
+
+def ensure_model_weights() -> None:
+    """Download missing .keras model weights from Hugging Face on cloud startup."""
+    weights_dir = Path(__file__).resolve().parents[1] / "ai" / "weights"
+    weights_dir.mkdir(parents=True, exist_ok=True)
+
+    models = {
+        "resnet50_crack_B_finetuned.keras": os.getenv("RESNET_WEIGHTS_URL", DEFAULT_RESNET_URL),
+        "unet_resnet50_crack500.keras": os.getenv("UNET_WEIGHTS_URL", DEFAULT_UNET_URL),
+    }
+
+    for filename, url in models.items():
+        target_path = weights_dir / filename
+        if not target_path.exists() and url:
+            print(f"[InfraScan] Downloading {filename} from Hugging Face...")
+            urllib.request.urlretrieve(url, target_path)
+            size_mb = target_path.stat().st_size / (1024 * 1024)
+            print(f"[InfraScan] Saved {filename} ({size_mb:.1f} MB)")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,6 +51,7 @@ async def lifespan(app: FastAPI):
         result_service.fail_stale(db)            # analyses cut off by the last restart
     if settings.secret_key.startswith("change-this"):
         print("WARNING: SECRET_KEY in .env is still the default. Set your own long random text.")
+    ensure_model_weights()                       # download .keras weights if missing on server
     get_pipeline().load()                        # load the AI models once, when the server starts
     yield
 
