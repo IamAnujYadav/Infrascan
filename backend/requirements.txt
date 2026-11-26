@@ -1,0 +1,21 @@
+# ---- Phase 1: AI engine ----
+numpy
+opencv-python
+pillow
+scikit-image
+tensorflow
+ultralytics
+
+# ---- Phase 2: platform ----
+fastapi
+uvicorn
+python-multipart
+pydantic
+pydantic-settings
+sqlalchemy
+python-jose[cryptography]
+passlib[bcrypt]
+
+# ---- Phase 4: reports ----
+reportlab
+openpyxl
