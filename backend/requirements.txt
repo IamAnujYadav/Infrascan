@@ -19,3 +19,5 @@ passlib[bcrypt]
 # ---- Phase 4: reports ----
 reportlab
 openpyxl
+
+gradio
